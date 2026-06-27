@@ -587,7 +587,7 @@ vim scripts/new-figure2.sh
 
 ---
 
-## 11. Main Artifact Figures
+## 12. Main Artifact Figures
 
 To run a main figure script:
 
@@ -606,21 +606,28 @@ python scripts/new-figure3.py
 
 ---
 
-## 22. Citation
+## 13. Citation
 
 If you use CacheLink in your research, please cite the associated paper:
 
 ```bibtex
-@article{cachelink2026,
-  title   = {CacheLink: Efficient Multi-Device Secondary Caching for RocksDB},
-  journal = {Electronics},
-  year    = {2026}
+@Article{electronics15132751,
+AUTHOR = {Ramadhan, Agung Rahmat and Yoo, Seehwan and Choi, Jongmoo},
+TITLE = {CacheLink: Efficient Multi-Device Secondary Caching for RocksDB},
+JOURNAL = {Electronics},
+VOLUME = {15},
+YEAR = {2026},
+NUMBER = {13},
+ARTICLE-NUMBER = {2751},
+URL = {https://www.mdpi.com/2079-9292/15/13/2751},
+ISSN = {2079-9292},
+DOI = {10.3390/electronics15132751}
 }
 ```
 
 ---
 
-## 23. License and Upstream Notice
+## 14. License and Upstream Notice
 
 CacheLink is built on top of RocksDB and uses CacheLib.
 
