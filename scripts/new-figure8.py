@@ -1,6 +1,8 @@
+
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.ticker import StrMethodFormatter
 
 # ============================================
 # Step 1: Fix broken CSV rows
@@ -27,10 +29,10 @@ def load_clean_csv(file):
             rows.append(buffer)
 
     columns = [
-        "mode","workload","policy",
-        "runtime_ms","throughput_ops","read_ops",
-        "avg_lat_us","min_lat_us","max_lat_us",
-        "p50_us","p95_us","p99_us"
+        "mode", "workload", "policy",
+        "runtime_ms", "throughput_ops", "read_ops",
+        "avg_lat_us", "min_lat_us", "max_lat_us",
+        "p50_us", "p95_us", "p99_us"
     ]
 
     data = []
@@ -43,7 +45,7 @@ def load_clean_csv(file):
 
     # Convert numeric
     for col in columns[3:]:
-        df[col] = pd.to_numeric(df[col], errors='coerce')
+        df[col] = pd.to_numeric(df[col], errors="coerce")
 
     return df
 
@@ -54,7 +56,6 @@ df = load_clean_csv(file_path)
 # ============================================
 # Step 2: Normalize labels
 # ============================================
-# df["workload"] = df["workload"].str.replace("workloads/", "")
 df["workload"] = (
     df["workload"]
     .str.replace("workloads/", "")
@@ -87,6 +88,12 @@ for w in workloads:
             runtime[p].append(0)
             throughput[p].append(0)
 
+# Convert runtime to scientific-scale unit to avoid Matplotlib showing "1e6"
+runtime_million = {
+    p: [v / 1e6 for v in runtime[p]]
+    for p in policies
+}
+
 # ============================================
 # Step 4: Plot
 # ============================================
@@ -110,21 +117,25 @@ colors = {
 
 # ---------- Runtime ----------
 for i, p in enumerate(policies):
-    ax1.bar(x + i*width, runtime[p], width, color=colors[p], label=p)
+    ax1.bar(x + i * width, runtime_million[p], width, color=colors[p], label=p)
 
-ax1.set_ylabel("Runtime (ms)")
-ax1.set_xticks(x + width*1.5)
+ax1.set_ylabel(r"Runtime ($\times 10^6$ ms)")
+ax1.set_xticks(x + width * 1.5)
 ax1.set_xticklabels(workloads)
 ax1.set_title("(a) Runtime")
+ax1.yaxis.set_major_formatter(StrMethodFormatter("{x:g}"))
+ax1.yaxis.get_offset_text().set_visible(False)
 
 # ---------- Throughput ----------
 for i, p in enumerate(policies):
-    ax2.bar(x + i*width, throughput[p], width, color=colors[p], label=p)
+    ax2.bar(x + i * width, throughput[p], width, color=colors[p], label=p)
 
 ax2.set_ylabel("Throughput (ops/sec)")
-ax2.set_xticks(x + width*1.5)
+ax2.set_xticks(x + width * 1.5)
 ax2.set_xticklabels(workloads)
 ax2.set_title("(b) Throughput")
+# ax2.yaxis.set_major_formatter(StrMethodFormatter("{x:,.0f}"))
+ax2.yaxis.get_offset_text().set_visible(False)
 
 # ============================================
 # Shared legend
@@ -133,18 +144,13 @@ handles, labels = ax1.get_legend_handles_labels()
 fig.legend(handles, labels, loc="upper center", ncol=4, frameon=False)
 
 # ============================================
-# Add filename (important for experiments)
-# ============================================
-# fig.text(0.5, -0.05, file_path, ha='center', fontsize=7)
-
-# ============================================
 # Clean style
 # ============================================
 for ax in [ax1, ax2]:
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
 
 plt.tight_layout(rect=[0, 0.05, 1, 0.9])
-plt.savefig("figure6_subfig.png", dpi=300, bbox_inches='tight')
+plt.savefig("figure6_subfig.png", dpi=300, bbox_inches="tight")
 plt.show()
 print("figure6_subfig.png")

@@ -2,6 +2,17 @@ import re
 import matplotlib.pyplot as plt
 import numpy as np
 
+from matplotlib.ticker import FuncFormatter
+
+# ============================================
+# MDPI formatter
+# 10000 -> 10,000
+# 4000  -> 4000
+# ============================================
+def mdpi_number(x, pos=None):
+    x = int(round(float(x)))
+    return f"{x:,}" if abs(x) >= 10000 else f"{x}"
+
 # ============================================
 # Global style (compact + clean)
 # ============================================
@@ -87,7 +98,7 @@ fig, (ax1, ax2) = plt.subplots(
 )
 
 # ---------- QPS ----------
-ax1.plot(t_base, q_base, label="Base",
+ax1.plot(t_base, q_base, label="baseline",
          markevery=get_markevery(t_base), markersize=marker_size,
          **styles["baseline"])
 ax1.plot(t_hdd, q_hdd, label="HDD",
@@ -101,16 +112,17 @@ ax1.plot(t_ssd2, q_ssd2, label="SATA2",
          **styles["ssd2"])
 ax1.plot(t_nvme, q_nvme, label="NVMe",
          markevery=get_markevery(t_nvme), markersize=marker_size,
-         **styles["nvme"])  
+         **styles["nvme"])
 
 ax1.set_ylabel("QPS")
+ax1.yaxis.set_major_formatter(FuncFormatter(mdpi_number))
 ax1.grid(True, linestyle="--", linewidth=0.3, alpha=0.5)
 ax1.spines["top"].set_visible(False)
 ax1.spines["right"].set_visible(False)
 
 
 # ---------- Latency ----------
-ax2.plot(t_base, lat_base, label="Base",
+ax2.plot(t_base, lat_base, label="baseline",
          markevery=get_markevery(t_base), markersize=marker_size,
          **styles["baseline"])
 ax2.plot(t_hdd, lat_hdd, label="HDD",
@@ -126,8 +138,11 @@ ax2.plot(t_nvme, lat_nvme, label="NVMe",
          markevery=get_markevery(t_nvme), markersize=marker_size,
          **styles["nvme"])
 
-ax2.set_xlabel("Time")
-ax2.set_ylabel("Lat (µs)")
+ax2.set_xlabel("Time (s)")
+ax2.xaxis.set_major_formatter(FuncFormatter(mdpi_number))
+
+ax2.set_ylabel("Latency (µs)")
+ax2.yaxis.set_major_formatter(FuncFormatter(mdpi_number))
 ax2.grid(True, linestyle="--", linewidth=0.3, alpha=0.5)
 ax2.spines["top"].set_visible(False)
 ax2.spines["right"].set_visible(False)

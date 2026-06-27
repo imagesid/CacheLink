@@ -6,6 +6,19 @@ import io
 import re
 import pandas as pd
 import matplotlib.pyplot as plt
+from matplotlib.ticker import StrMethodFormatter
+
+from matplotlib.ticker import FuncFormatter
+
+
+# =========================
+# MDPI formatter
+# 10000 -> 10,000
+# 4000  -> 4000
+# =========================
+def mdpi_number(x, pos=None):
+    x = int(round(float(x)))
+    return f"{x:,}" if abs(x) >= 10000 else f"{x}"
 
 # =========================
 # INPUT DATA
@@ -104,9 +117,10 @@ def annotate_inside(ax, x, y_vals, fmt="{:.0f}", fontsize=7):
         y_text = max(y_min + 0.02 * y_range,
                      min(y_text, y_max - 0.02 * y_range))
 
-        ax.text(xi, y_text, fmt.format(yi),
-                ha='center', va=va, fontsize=fontsize)
+        label = mdpi_number(yi) if fmt == "mdpi" else fmt.format(yi)
 
+        ax.text(xi, y_text, label,
+                ha='center', va=va, fontsize=fontsize)
 # =========================
 # PLOT
 # =========================
@@ -146,7 +160,12 @@ ax1.set_xticklabels(labels)
 ax1.set_xlim(-0.3, len(labels) - 1 + 0.3)
 
 ax1.set_ylabel("QPS")
-ax2.set_ylabel("Latency (us)")
+ax2.set_ylabel("Latency (µs)")
+
+
+ax1.yaxis.set_major_formatter(FuncFormatter(mdpi_number))
+ax2.yaxis.set_major_formatter(FuncFormatter(mdpi_number))
+
 
 ax1.set_ylim(qps_low, qps_high)
 ax2.set_ylim(lat_low, lat_high)
@@ -156,8 +175,12 @@ ax1.grid(axis="y", linestyle="--", alpha=0.3)
 # =========================
 # ANNOTATIONS
 # =========================
-annotate_inside(ax1, x, qps_vals, fmt="{:.0f}", fontsize=7)
-annotate_inside(ax2, x, lat_vals, fmt="{:.0f}", fontsize=6)
+# annotate_inside(ax1, x, qps_vals, fmt="{:.0f}", fontsize=7)
+# annotate_inside(ax2, x, lat_vals, fmt="{:.0f}", fontsize=6)
+
+annotate_inside(ax1, x, qps_vals, fmt="mdpi", fontsize=7)
+annotate_inside(ax2, x, lat_vals, fmt="mdpi", fontsize=6)
+
 
 # =========================
 # LEGEND

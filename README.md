@@ -2,14 +2,6 @@
 
 **CacheLink** is an efficient multi-device secondary caching framework for RocksDB.
 
-CacheLink extends RocksDB's experimental `SecondaryCache` interface with a CacheLib-based backend. It allows blocks evicted from RocksDB's DRAM block cache to be stored on local secondary devices such as HDDs, SATA SSDs, and NVMe SSDs.
-
-CacheLink is designed for RocksDB deployments where the main database is placed on remote or disaggregated storage, such as NFS. In this environment, a miss in the DRAM block cache can trigger an expensive backend read. CacheLink reduces this cost by inserting a local secondary-cache layer between RocksDB's DRAM block cache and the remote storage path.
-
-The framework supports configurable cache size, cache path, admission control, and eviction policies, including LRU, LRU2Q, and TinyLFU. These options make CacheLink useful not only as a device-backed secondary cache implementation, but also as an experimental framework for studying how secondary-cache design choices affect RocksDB throughput, latency, and tail-latency behavior.
-
-Experimental results using `db_bench` and YCSB show that CacheLink substantially improves throughput and reduces average latency compared with baseline RocksDB without secondary caching. In the paper's secondary-cache size experiment, the best-performing configuration uses a 2 GB NVMe secondary cache with TinyLFU eviction and full admission, improving throughput by 2.5× and reducing average latency by 60.7% relative to the baseline.
-
 ---
 
 ## Key Features
@@ -31,30 +23,159 @@ Experimental results using `db_bench` and YCSB show that CacheLink substantially
 
 ---
 
-## 1. Experimental Model
-
-CacheLink is intended for a two-storage-path setup:
-
-```text
-Client / Benchmark Server
-├── Runs RocksDB + CacheLink
-├── Uses local device for secondary cache
-│   └── Example: local HDD, SATA SSD, or NVMe SSD
-└── Accesses RocksDB database through NFS
-
-NFS Target Server
-└── Stores the RocksDB database files
-```
+## Important Notice
 
 The database should be created first on the NFS target storage. After that, the benchmark server mounts the NFS path and runs read experiments using `--use_existing_db=1`.
 
 ---
+# Preparing NFS Data
 
-## 2. Docker Environment
+## 1. Preparing the NFS Database
+
+For remote-storage experiments, the RocksDB database should be created first on the NFS target server. We must install RocksDB db_bench on the NFS target server to create a db.
+
+```bash
+git clone https://github.com/facebook/rocksdb.git
+cd rocksdb
+git checkout v8.10.0
+make -j$(nproc) db_bench
+```
+
+## 2. Fill the Database on the NFS Target Server
+
+Copy fill.py from CacheLink repo to rocksdb folder:
+
+Open the fill script:
+
+```bash
+vim fill.sh
+```
+
+Change the target database directory inside `fill.sh`.
+
+Example:
+
+```bash
+DB_PATH="/export/rocksdb_data"
+```
+
+The exact variable name may differ depending on the script. The important point is that the database path should point to the directory exported by the NFS server.
+
+Run the fill script:
+
+```bash
+bash fill.sh
+```
+
+After the script finishes, check that the RocksDB files were created:
+
+```bash
+ls -lah /export/rocksdb_data
+```
+
+The directory should contain RocksDB database files such as `.sst`, `CURRENT`, `MANIFEST`, `OPTIONS`, and `LOG`.
+
+---
+
+## 3. Mount NFS on the Benchmark Server
+
+After the database has been filled on the NFS target server and the NFS export is ready, mount the exported directory on the benchmark server.
+
+### 3.1 Create a Local Mount Directory
+
+```bash
+mkdir -p <LOCAL_NFS_MOUNT_DIR>
+```
+
+Example:
+
+```bash
+mkdir -p /home/agung/rocksdb_nfs
+```
+
+### 3.2 Mount the NFS Export
+
+```bash
+mount -t nfs -o nfsvers=4.1,tcp,sync \
+  <NFS_SERVER>:/<NFS_EXPORT_PATH> \
+  <LOCAL_NFS_MOUNT_DIR>
+```
+
+Example:
+
+```bash
+mount -t nfs -o nfsvers=4.1,tcp,sync \
+  220.221.110.xxx:/export/rocksdb_data \
+  /home/agung/rocksdb_nfs
+```
+
+Replace the placeholders with your own environment values.
+
+| Placeholder | Meaning |
+|---|---|
+| `<NFS_SERVER>` | NFS server hostname or IP address |
+| `<NFS_EXPORT_PATH>` | Exported directory path on the NFS server |
+| `<LOCAL_NFS_MOUNT_DIR>` | Local mount point on the benchmark server |
+
+### 9.3 Check the NFS Mount
+
+```bash
+df -h | grep <LOCAL_NFS_MOUNT_DIR>
+```
+
+or:
+
+```bash
+mount | grep nfs
+```
+
+---
+
+# Installing CacheLink
+
+## 1. Docker Environment
 
 CacheLink can be built and evaluated inside an Ubuntu 22.04 Docker container.
 
-### 2.1 Start the Docker Container
+### 1.1 Check Local Storage Devices
+
+Before starting the Docker container, check which local paths correspond to the HDD, SATA SSD, and NVMe SSD.
+
+```bash
+lsblk -o NAME,SIZE,MODEL,ROTA,TRAN,MOUNTPOINT
+````
+
+Use the following rule:
+
+```text
+ROTA=1, TRAN=sata  -> HDD
+ROTA=0, TRAN=sata  -> SATA SSD
+ROTA=0, TRAN=nvme  -> NVMe SSD
+```
+
+Example output:
+
+```text
+NAME        SIZE MODEL                    ROTA TRAN MOUNTPOINT
+sdb         1.8T Samsung_SSD_870_EVO_2TB     0 sata
+└─sdb1      1.8T                                  /mnt/hdd1
+sdc         3.7T ST4000NM002A-2HZ101         1 sata
+└─sdc1        2T                                  /mnt/hdd2
+nvme0n1     1.8T Samsung SSD 980 PRO 2TB     0 nvme
+└─nvme0n1p1 1.8T                                  /mnt/nvme
+```
+
+In this example:
+
+```text
+/mnt/hdd2  -> HDD
+/mnt/hdd1  -> SATA SSD
+/mnt/nvme  -> NVMe SSD
+```
+
+### 1.2 Start the Docker Container
+
+Replace the paths below with your own local paths:
 
 ```bash
 docker run -dit \
@@ -67,6 +188,35 @@ docker run -dit \
   ubuntu:22.04
 ```
 
+For example, on our testbed:
+
+```bash
+docker run -dit \
+  --name cachelink_env \
+  --privileged \
+  -v /home/agung:/workspace \
+  -v /mnt/hdd2:/mnt/hdd \
+  -v /mnt/hdd1:/mnt/ssd \
+  -v /mnt/nvme:/mnt/nvme \
+  ubuntu:22.04
+```
+
+Alternatively, use the one-line version to avoid shell line-break errors:
+
+```bash
+docker run -dit --name cachelink_env --privileged -v /home/agung:/workspace -v /mnt/hdd2:/mnt/hdd -v /mnt/hdd1:/mnt/ssd -v /mnt/nvme:/mnt/nvme ubuntu:22.04
+```
+
+
+If a container with the same name already exists, remove it first:
+
+```bash
+docker rm -f cachelink_env
+```
+
+
+
+
 Example placeholder meaning:
 
 | Placeholder | Meaning |
@@ -78,7 +228,7 @@ Example placeholder meaning:
 
 Do not use important production directories as experiment paths.
 
-### 2.2 Docker Option Explanation
+### Docker Option Explanation
 
 | Option | Description |
 |---|---|
@@ -96,7 +246,7 @@ Do not use important production directories as experiment paths.
 
 ---
 
-## 3. Enter the Docker Container
+## 2. Enter the Docker Container
 
 ```bash
 docker exec -it cachelink_env /bin/bash
@@ -110,7 +260,7 @@ cd /workspace
 
 ---
 
-## 4. Install Required Packages
+## 3. Install Required Packages
 
 Because the container starts from the official `ubuntu:22.04` image, install the required packages first.
 
@@ -136,16 +286,30 @@ apt install -y \
   libboost-all-dev \
   python3 \
   python3-pip \
-  nfs-common
+  nfs-common \
+  sudo
 ```
 
 ---
 
-## 5. Install CacheLib
+## 4. Install CacheLib
 
 CacheLink uses CacheLib as the underlying cache backend.
 
-### 5.1 Clone CacheLib
+### Preparation
+Install manually the liburing.
+
+```bash
+cd /tmp
+git clone https://github.com/axboe/liburing.git
+cd liburing
+./configure --prefix=/usr/local
+make -j$(nproc)
+make install
+ldconfig
+```
+
+### 4.1 Clone CacheLib
 
 ```bash
 cd /workspace
@@ -153,7 +317,7 @@ git clone https://github.com/facebook/CacheLib.git
 cd CacheLib
 ```
 
-### 5.2 Checkout the Tested Version
+### 4.2 Checkout the Tested Version
 
 The tested CacheLib version is `v2024.06.21`.
 
@@ -161,13 +325,13 @@ The tested CacheLib version is `v2024.06.21`.
 git checkout c5c0d9b
 ```
 
-### 5.3 Build CacheLib
+### 4.3 Build CacheLib
 
 ```bash
 ./contrib/build.sh -d -j -v
 ```
 
-### 5.4 CacheLib Build Option Explanation
+### 4.4 CacheLib Build Option Explanation
 
 | Option | Description |
 |---|---|
@@ -177,7 +341,7 @@ git checkout c5c0d9b
 
 ---
 
-## 6. Build CacheLink
+## 5. Build CacheLink
 
 Return to the workspace:
 
@@ -192,11 +356,11 @@ git clone https://github.com/imagesid/CacheLink
 cd CacheLink
 ```
 
-Example:
+If you install Cachelib or CacheLink in different folder, edit the Makefile file.
 
 ```bash
-git clone https://github.com/imagesid/CacheLink.git
-cd CacheLink
+CACHELIB_PATH = /workspace/CacheLib/opt/cachelib
+WRAPPER_PATH = /workspace/CacheLink
 ```
 
 Clean previous build artifacts:
@@ -219,153 +383,7 @@ ls -lah db_bench
 
 ---
 
-## 7. Preparing the NFS Database
-
-For remote-storage experiments, the RocksDB database should be created first on the NFS target server.
-
-This means:
-
-1. Go to the NFS target server.
-2. Edit `fill.sh`.
-3. Change the target database directory to the exported NFS directory.
-4. Run `fill.sh` to create and fill the database.
-5. Mount the NFS export from the benchmark server.
-6. Run CacheLink experiments with `--use_existing_db=1`.
-
----
-
-## 8. Fill the Database on the NFS Target Server
-
-On the NFS target server, go to the CacheLink repository:
-
-```bash
-cd <CACHELINK_DIR>
-```
-
-Open the fill script:
-
-```bash
-vim scripts/fill.sh
-```
-
-Change the target database directory inside `fill.sh`.
-
-Example:
-
-```bash
-DB_DIR="<NFS_EXPORT_DIR>/rocksdb_data"
-```
-
-The exact variable name may differ depending on the script. The important point is that the database path should point to the directory exported by the NFS server.
-
-Run the fill script:
-
-```bash
-bash scripts/fill.sh
-```
-
-After the script finishes, check that the RocksDB files were created:
-
-```bash
-ls -lah <NFS_EXPORT_DIR>/rocksdb_data
-```
-
-The directory should contain RocksDB database files such as `.sst`, `CURRENT`, `MANIFEST`, `OPTIONS`, and `LOG`.
-
----
-
-## 9. Mount NFS on the Benchmark Server
-
-After the database has been filled on the NFS target server and the NFS export is ready, mount the exported directory on the benchmark server.
-
-### 9.1 Create a Local Mount Directory
-
-```bash
-mkdir -p <LOCAL_NFS_MOUNT_DIR>
-```
-
-Example:
-
-```bash
-mkdir -p /mnt/rocksdb_nfs
-```
-
-### 9.2 Mount the NFS Export
-
-```bash
-mount -t nfs -o nfsvers=4.1,tcp,sync \
-  <NFS_SERVER>:/<NFS_EXPORT_PATH> \
-  <LOCAL_NFS_MOUNT_DIR>
-```
-
-Example:
-
-```bash
-mount -t nfs -o nfsvers=4.1,tcp,sync \
-  <NFS_SERVER>:/export/rocksdb_data \
-  /mnt/rocksdb_nfs
-```
-
-Replace the placeholders with your own environment values.
-
-| Placeholder | Meaning |
-|---|---|
-| `<NFS_SERVER>` | NFS server hostname or IP address |
-| `<NFS_EXPORT_PATH>` | Exported directory path on the NFS server |
-| `<LOCAL_NFS_MOUNT_DIR>` | Local mount point on the benchmark server |
-
-### 9.3 Check the NFS Mount
-
-```bash
-df -h | grep <LOCAL_NFS_MOUNT_DIR>
-```
-
-or:
-
-```bash
-mount | grep nfs
-```
-
----
-
-## 10. Safe Experiment Rules
-
-Before running any benchmark, follow these safety rules.
-
-1. Do not use an important existing RocksDB database as the test path.
-2. Use a separate database directory for each experiment.
-3. Use a separate secondary-cache file or directory for each run.
-4. Save benchmark logs separately from database and cache files.
-5. Use `--use_existing_db=0` only when creating a new benchmark database.
-6. Use `--use_existing_db=1` only when intentionally reusing a previously created database.
-7. Be careful with `rm -rf`. Only remove files inside temporary experiment directories.
-8. For NFS experiments, fill the database first on the NFS target server before running read benchmarks from the benchmark server.
-
-Recommended local experiment layout:
-
-```text
-/tmp/cachelink_exp/
-├── cache/
-└── logs/
-```
-
-Create directories:
-
-```bash
-mkdir -p /tmp/cachelink_exp/cache
-mkdir -p /tmp/cachelink_exp/logs
-```
-
-Clean only temporary cache and log files:
-
-```bash
-rm -rf /tmp/cachelink_exp/cache/*
-rm -rf /tmp/cachelink_exp/logs/*
-```
-
----
-
-## 11. Basic Local `db_bench` Sanity Test
+## 7. Basic Local `db_bench` Sanity Test
 
 Before running NFS experiments, verify that `db_bench` works locally.
 
@@ -373,6 +391,7 @@ Create a safe temporary database directory:
 
 ```bash
 mkdir -p /tmp/cachelink_local_db
+mkdir -p /tmp/temp_cache
 ```
 
 Clean old test data if needed:
@@ -390,7 +409,7 @@ Run a simple local test:
   --db=/tmp/cachelink_local_db \
   --cache_size=33554432 \
   --secondary_cache_uri="id=CacheLink" \
-  --cachelink="size=1073741824,eviction=tinylfu,adm_policy=dynamic_random,adm_prob=0.8,file=/tmp/cachelink_exp/cache/cachelink_local.data" \
+  --cachelink="size=1073741824,eviction=tinylfu,adm_policy=random,adm_prob=1.0,file=/tmp/temp_cache/cachelink_local.data" \
   --statistics
 ```
 
@@ -398,7 +417,7 @@ This test checks whether the CacheLink-enabled `db_bench` binary runs correctly.
 
 ---
 
-## 12. Run CacheLink with NFS-Backed RocksDB Data
+## 8. Run CacheLink with NFS-Backed RocksDB Data
 
 After the database has been filled on the NFS target server and mounted on the benchmark server, run the benchmark with `--use_existing_db=1`.
 
@@ -408,25 +427,17 @@ Example:
 ./db_bench \
   --benchmarks=readrandom \
   --use_existing_db=1 \
-  --db=<LOCAL_NFS_MOUNT_DIR>/rocksdb_data \
+  --db=/workspace/rocksdb_nfs \
   --cache_size=33554432 \
   --secondary_cache_uri="id=CacheLink" \
-  --cachelink="size=1073741824,eviction=tinylfu,adm_policy=dynamic_random,adm_prob=0.8,file=/mnt/nvme/cachelink.data" \
-  --statistics \
-  2>&1 | tee /tmp/cachelink_exp/logs/db_bench_nfs_nvme.log
+  --cachelink="size=1073741824,eviction=tinylfu,adm_policy=random,adm_prob=1.0,file=/mnt/nvme/cachelink.data" \
+  --statistics
 ```
 
-In this setup:
-
-| Path | Meaning |
-|---|---|
-| `<LOCAL_NFS_MOUNT_DIR>/rocksdb_data` | RocksDB database path mounted from NFS |
-| `/mnt/nvme/cachelink.data` | Local NVMe secondary-cache file |
-| `/tmp/cachelink_exp/logs/db_bench_nfs_nvme.log` | Benchmark log file |
 
 ---
 
-## 13. `db_bench` Parameter Explanation
+##  `db_bench` Parameter Explanation
 
 | Parameter | Description |
 |---|---|
@@ -449,34 +460,111 @@ In this setup:
 
 ---
 
-## 14. Common CacheLink Configurations
+## 9. Common CacheLink Configurations
 
-### 14.1 NVMe Secondary Cache with TinyLFU
+### 9.1 NVMe Secondary Cache with TinyLFU
 
 ```bash
 --secondary_cache_uri="id=CacheLink" \
---cachelink="size=1073741824,eviction=tinylfu,adm_policy=dynamic_random,adm_prob=0.8,file=/mnt/nvme/cachelink.data"
+--cachelink="size=1073741824,eviction=tinylfu,adm_policy=random,adm_prob=1.0,file=/mnt/nvme/cachelink.data"
 ```
 
-### 14.2 SSD Secondary Cache with LRU
+### 9.2 SSD Secondary Cache with LRU
 
 ```bash
 --secondary_cache_uri="id=CacheLink" \
---cachelink="size=1073741824,eviction=lru,adm_policy=dynamic_random,adm_prob=0.8,file=/mnt/ssd/cachelink.data"
+--cachelink="size=1073741824,eviction=lru,adm_policy=random,adm_prob=1.0,file=/mnt/ssd/cachelink.data"
 ```
 
-### 14.3 HDD Secondary Cache with LRU2Q
+### 9.3 HDD Secondary Cache with LRU2Q
 
 ```bash
 --secondary_cache_uri="id=CacheLink" \
---cachelink="size=1073741824,eviction=lru2q,adm_policy=dynamic_random,adm_prob=0.8,file=/mnt/hdd/cachelink.data"
+--cachelink="size=1073741824,eviction=lru2q,adm_policy=random,adm_prob=1.0,file=/mnt/hdd/cachelink.data"
 ```
 
 Adjust paths according to your mounted devices.
 
 ---
 
-## 15. Reproducing Artifact Results
+## 10. Installing YCSB
+
+### Build YCSB with Custom CacheLink RocksDB
+
+Install Java and Maven:
+
+```bash
+apt update
+apt install -y openjdk-11-jdk maven
+```
+
+Set Java environment variables:
+
+```bash
+export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
+export PATH=$JAVA_HOME/bin:$PATH
+```
+
+Build the custom RocksDB JNI library:
+
+```bash
+cd /workspace/CacheLink
+
+DEBUG_LEVEL=0 \
+EXTRA_CXXFLAGS=-fPIC \
+EXTRA_CFLAGS=-fPIC \
+USE_RTTI=1 \
+make -j$(nproc) rocksdbjavastatic
+```
+
+Install the custom RocksDB JNI jar into the local Maven repository:
+
+```bash
+VERSION=8.10.0
+
+mvn install:install-file \
+  -Dfile=java/target/rocksdbjni-${VERSION}-linux64.jar \
+  -DgroupId=org.rocksdb \
+  -DartifactId=rocksdbjni \
+  -Dversion=${VERSION} \
+  -Dpackaging=jar
+```
+
+Set the CacheLib library path:
+
+```bash
+export LD_LIBRARY_PATH=/workspace/CacheLib/opt/cachelib/lib:$LD_LIBRARY_PATH
+```
+
+Build the YCSB RocksDB binding:
+
+```bash
+cd /workspace
+git clone https://github.com/imagesid/CacheLink-YCSB YCSB
+cd /workspace/YCSB
+
+mvn -o -pl site.ycsb:rocksdb-binding -am clean package
+```
+
+If Maven dependencies have not been downloaded yet, run this command once before the offline build:
+
+```bash
+mvn -pl site.ycsb:rocksdb-binding -am clean package
+```
+
+Run a simple YCSB load test with CacheLink:
+
+```bash
+./bin/ycsb load rocksdb -s \
+  -P workloads/workloada \
+  -p rocksdb.dir=/tmp/ycsb-rocksdb-data \
+  -p secondary_cache_uri="id=CacheLink" \
+  -p cachelink="size=1073741824,eviction=tinylfu,adm_policy=random,adm_prob=0.2,file=/workspace/cache_file"
+```
+
+If the output shows the `CacheLink` parameters, then YCSB is correctly connected to the custom RocksDB with CacheLink support. You can then proceed with the full evaluation.
+
+## 11. Reproducing Artifact Results
 
 The repository includes scripts for reproducing artifact results and figures.
 
@@ -488,346 +576,32 @@ The scripts cover both:
 Before running any artifact script, inspect it first to verify database paths, cache paths, device paths, and output directories.
 
 ```bash
-cat scripts/figure0.sh
+cat scripts/new-figure2.sh
 ```
 
 or:
 
 ```bash
-vim scripts/figure0.sh
+vim scripts/new-figure2.sh
 ```
 
 ---
 
-## 16. Main Artifact Figures
+## 11. Main Artifact Figures
 
 To run a main figure script:
 
 ```bash
-bash scripts/figure{n}.sh
+bash scripts/new-figure{n}.sh
 ```
 
-Replace `{n}` with the target figure number.
+Replace `{n}` with the target figure number from 2 to 17.
 
 Examples:
 
 ```bash
-bash scripts/figure0.sh
-bash scripts/figure1.sh
-bash scripts/figure2.sh
-```
-
-Expected main figure scripts:
-
-```bash
-bash scripts/figure0.sh
-bash scripts/figure1.sh
-bash scripts/figure2.sh
-bash scripts/figure3.sh
-bash scripts/figure4.sh
-bash scripts/figure5.sh
-bash scripts/figure6.sh
-bash scripts/figure7.sh
-bash scripts/figure8.sh
-bash scripts/figure9.sh
-bash scripts/figure10.sh
-```
-
----
-
-## 17. Additional Artifact Figures
-
-To run an additional figure script:
-
-```bash
-bash scripts/figure-additional{n}.sh
-```
-
-Examples:
-
-```bash
-bash scripts/figure-additional0.sh
-bash scripts/figure-additional1.sh
-bash scripts/figure-additional2.sh
-```
-
----
-
-## 18. YCSB Experiments
-
-Some artifact scripts may run YCSB workloads. The paper evaluates YCSB workloads A, B, C, D, and F.
-
-| Workload | Description |
-|---|---|
-| Workload A | Balanced read/update workload |
-| Workload B | Read-heavy workload |
-| Workload C | Read-only workload |
-| Workload D | Read-latest workload |
-| Workload F | Read-modify-write workload |
-
-Workload E is not the main target because it uses short-range scans, which exercise a different RocksDB path from the point lookups targeted by CacheLink.
-
-Before running YCSB scripts, check:
-
-1. RocksDB build path
-2. YCSB path
-3. Database directory
-4. Secondary-cache directory
-5. Workload file
-6. Number of records
-7. Number of operations
-8. Output log directory
-
----
-
-## 19. Expected Output
-
-Depending on the script, the output may include:
-
-- Raw benchmark logs
-- Processed result files
-- Throughput results
-- Average latency results
-- Tail-latency results
-- Generated figures
-- Intermediate experiment data
-
-Store outputs in a separate directory:
-
-```bash
-mkdir -p /tmp/cachelink_results
-```
-
----
-
-## 20. Troubleshooting
-
-### 20.1 Docker Container Already Exists
-
-Check existing containers:
-
-```bash
-docker ps -a
-```
-
-If the old container is no longer needed, remove it:
-
-```bash
-docker rm -f cachelink_env
-```
-
-Then rerun the `docker run` command.
-
----
-
-### 20.2 Cannot Enter the Container
-
-Check whether the container is running:
-
-```bash
-docker ps
-```
-
-If it is stopped, start it:
-
-```bash
-docker start cachelink_env
-```
-
-Then enter it:
-
-```bash
-docker exec -it cachelink_env /bin/bash
-```
-
----
-
-### 20.3 Permission Problem in Mounted Directories
-
-Check permissions:
-
-```bash
-ls -lah /mnt/hdd
-ls -lah /mnt/ssd
-ls -lah /mnt/nvme
-```
-
-Also check the NFS-mounted database path:
-
-```bash
-ls -lah <LOCAL_NFS_MOUNT_DIR>
-```
-
-If needed, adjust ownership or permissions carefully on the host machine.
-
----
-
-### 20.4 NFS Mount Failed
-
-Check whether the mount directory exists:
-
-```bash
-ls -lah <LOCAL_NFS_MOUNT_DIR>
-```
-
-Check NFS mount status:
-
-```bash
-mount | grep nfs
-```
-
-Check disk visibility:
-
-```bash
-df -h
-```
-
-If the NFS server is unreachable, check network connectivity and server export configuration.
-
----
-
-### 20.5 `db_bench` Not Found
-
-Make sure you are inside the CacheLink directory:
-
-```bash
-pwd
-ls -lah
-```
-
-Check whether `db_bench` exists:
-
-```bash
-ls -lah db_bench
-```
-
-If it does not exist, rebuild:
-
-```bash
-make clean
-make db_bench -j$(nproc)
-```
-
----
-
-### 20.6 CacheLib Build Failed
-
-Check the CacheLib directory:
-
-```bash
-cd /workspace/CacheLib
-git status
-git rev-parse HEAD
-```
-
-The expected commit is:
-
-```text
-c5c0d9b
-```
-
-Rebuild CacheLib:
-
-```bash
-./contrib/build.sh -d -j -v
-```
-
----
-
-### 20.7 Git Clone Failed
-
-If cloning with HTTPS fails:
-
-```bash
-git clone https://github.com/imagesid/CacheLink.git
-```
-
-check network access and repository permissions.
-
-If cloning with SSH fails:
-
-```bash
-git clone git@github.com:imagesid/CacheLink.git
-```
-
-check your SSH connection:
-
-```bash
-ssh -T git@github.com
-```
-
----
-
-### 20.8 Benchmark Accidentally Uses Old Data
-
-Check the database directory:
-
-```bash
-ls -lah <DATABASE_DIR>
-```
-
-For a fresh local run, clean only the intended temporary directory:
-
-```bash
-rm -rf /tmp/cachelink_local_db/*
-```
-
-Then rerun with:
-
-```bash
---use_existing_db=0
-```
-
-For a read-only run on an existing NFS database, use:
-
-```bash
---use_existing_db=1
-```
-
----
-
-## 21. Notes for Reproducibility
-
-For each experiment, record the following information:
-
-- Git commit hash
-- CacheLib commit hash
-- Docker image name
-- CPU model
-- Memory size
-- Operating system
-- Storage device used for RocksDB database
-- Storage device used for secondary cache
-- `db_bench` command
-- YCSB workload configuration
-- Cache size
-- Admission policy
-- Admission probability
-- Eviction policy
-- Number of records
-- Number of operations
-- Log file path
-
-Useful commands:
-
-```bash
-git rev-parse HEAD
-```
-
-```bash
-uname -a
-```
-
-```bash
-lscpu
-```
-
-```bash
-free -h
-```
-
-```bash
-df -h
+bash scripts/new-figure2.sh
+python scripts/new-figure3.py
 ```
 
 ---

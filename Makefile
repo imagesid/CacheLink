@@ -28,7 +28,7 @@ SYSTEM_LIBS = \
     -L$(CACHELIB_PATH)/lib \
     -lz -lbz2 -lsnappy -llz4 -lzstd \
     -lpthread -ldl -lrt -lnuma \
-    -lboost_context -ldouble-conversion -lrpcmetadata
+    -lboost_context -lboost_regex -ldouble-conversion -lrpcmetadata
 
 EXTRA_CXXFLAGS += \
 	-I$(WRAPPER_PATH)/include \

@@ -20,6 +20,20 @@ policies = ["none", "LRU", "LRU2Q", "TinyLFU"]
 labels = ["Baseline", "LRU", "LRU2Q", "TinyLFU"]
 
 # =========================
+# MDPI formatter
+# 10000 -> 10,000
+# 4000  -> 4000
+# =========================
+def mdpi_label(x):
+    x = int(round(float(x)))
+    return f"{x:,}" if abs(x) >= 10000 else f"{x}"
+
+def force_mdpi_y_ticks(ax):
+    ticks = ax.get_yticks()
+    ax.set_yticks(ticks)
+    ax.set_yticklabels([mdpi_label(t) for t in ticks])
+
+# =========================
 # ORGANIZE DATA
 # =========================
 qps_data = {}
@@ -46,15 +60,15 @@ all_lat = sum([list(lat_data[p]) for p in policies], [])
 
 qps_low, qps_high = get_padded_limits(all_qps)
 lat_low, lat_high = get_padded_limits(all_lat)
-
+lat_low = 0
 # =========================
 # STYLE
 # =========================
 styles = {
-    "none":   dict(marker='o', linestyle='-',  linewidth=1.5),
-    "LRU":    dict(marker='s', linestyle='--', linewidth=1.5),
-    "LRU2Q":  dict(marker='^', linestyle='-.', linewidth=1.5),
-    "TinyLFU":dict(marker='D', linestyle=':',  linewidth=1.5),
+    "none":    dict(marker='o', linestyle='-',  linewidth=1.5),
+    "LRU":     dict(marker='s', linestyle='--', linewidth=1.5),
+    "LRU2Q":   dict(marker='^', linestyle='-.', linewidth=1.5),
+    "TinyLFU": dict(marker='D', linestyle=':',  linewidth=1.5),
 }
 
 colors = ["#bbbbbb", "#888888", "#444444"]
@@ -69,6 +83,7 @@ plt.rcParams.update({
 # =========================
 fig, axes = plt.subplots(2, 2, figsize=(5.5, 3.8))
 x = list(range(len(threads)))
+thread_labels = [mdpi_label(t) for t in threads]
 
 # =========================
 # ROW 1 — LINE PLOTS
@@ -78,28 +93,28 @@ ax = axes[0, 0]
 line_handles = []
 
 for p, label in zip(policies, labels):
-    print(label, x, qps_data[p])
     line, = ax.plot(x, qps_data[p], color="black", label=label, **styles[p])
     line_handles.append(line)
 
 ax.set_title("Throughput (Full)")
 ax.set_xticks(x)
-ax.set_xticklabels(threads)
-ax.set_xlim(-0.3, len(x)-1+0.3)
+ax.set_xticklabels(thread_labels)
+ax.set_xlim(-0.3, len(x) - 1 + 0.3)
 ax.set_ylabel("Ops/sec")
 ax.set_ylim(qps_low, qps_high)
 ax.grid(axis="y", linestyle="--", alpha=0.3)
 
 # Latency
 ax = axes[0, 1]
+
 for p in policies:
     ax.plot(x, lat_data[p], color="black", **styles[p])
 
 ax.set_title("Latency (Full)")
 ax.set_xticks(x)
-ax.set_xticklabels(threads)
-ax.set_xlim(-0.3, len(x)-1+0.3)
-ax.set_ylabel("Latency (us)")
+ax.set_xticklabels(thread_labels)
+ax.set_xlim(-0.3, len(x) - 1 + 0.3)
+ax.set_ylabel("Latency (µs)")
 ax.set_ylim(lat_low, lat_high)
 ax.grid(axis="y", linestyle="--", alpha=0.3)
 
@@ -115,30 +130,32 @@ bar_handles = []
 
 for i, p in enumerate(policy_list):
     vals = qps_data[p]
-    bars = ax.bar(np.array(x) + offsets[i], vals,
-                  width=bar_width,
-                  color=colors[i],
-                  edgecolor="black",
-                  label=p)
+    bars = ax.bar(
+        np.array(x) + offsets[i],
+        vals,
+        width=bar_width,
+        color=colors[i],
+        edgecolor="black",
+        label=p
+    )
 
     bar_handles.append(bars[0])
 
-    # rotated annotation inside bar
     for xi, yi in zip(np.array(x) + offsets[i], vals):
         ax.text(
             xi,
             yi * 0.5,
-            f"{int(yi)}",
-            ha='center',
-            va='center',
+            mdpi_label(yi),
+            ha="center",
+            va="center",
             rotation=90,
             fontsize=6
         )
 
 ax.set_title("Throughput (Policy)")
 ax.set_xticks(x)
-ax.set_xticklabels(threads)
-ax.set_xlim(-0.3, len(x)-1+0.3)
+ax.set_xticklabels(thread_labels)
+ax.set_xlim(-0.3, len(x) - 1 + 0.3)
 ax.set_xlabel("Threads")
 ax.set_ylabel("Ops/sec")
 ax.grid(axis="y", linestyle="--", alpha=0.3)
@@ -148,44 +165,45 @@ ax = axes[1, 1]
 
 for i, p in enumerate(policy_list):
     vals = lat_data[p]
-    bars = ax.bar(np.array(x) + offsets[i], vals,
-                  width=bar_width,
-                  color=colors[i],
-                  edgecolor="black")
+    ax.bar(
+        np.array(x) + offsets[i],
+        vals,
+        width=bar_width,
+        color=colors[i],
+        edgecolor="black"
+    )
 
     for xi, yi in zip(np.array(x) + offsets[i], vals):
         ax.text(
             xi,
             yi * 0.5,
-            f"{int(yi)}",
-            ha='center',
-            va='center',
+            mdpi_label(yi),
+            ha="center",
+            va="center",
             rotation=90,
             fontsize=6
         )
 
 ax.set_title("Latency (Policy)")
 ax.set_xticks(x)
-ax.set_xticklabels(threads)
-ax.set_xlim(-0.3, len(x)-1+0.3)
+ax.set_xticklabels(thread_labels)
+ax.set_xlim(-0.3, len(x) - 1 + 0.3)
 ax.set_xlabel("Threads")
-ax.set_ylabel("Latency (us)")
+ax.set_ylabel("Latency (µs)")
 ax.grid(axis="y", linestyle="--", alpha=0.3)
 
 # =========================
 # LEGENDS
 # =========================
-# line legend (top)
 fig.legend(
     line_handles,
     labels,
     loc="lower center",
-    bbox_to_anchor=(0.5, 0.05),  # <-- move up
+    bbox_to_anchor=(0.5, 0.05),
     ncol=4,
     frameon=True
 )
 
-# bar legend (bottom-left subplot)
 axes[1, 0].legend(
     bar_handles,
     ["LRU", "LRU2Q", "TinyLFU"],
@@ -198,9 +216,16 @@ plt.tight_layout()
 plt.subplots_adjust(bottom=0.22)
 
 # =========================
-# SAVE
+# FORCE THOUSAND SEPARATORS AFTER LAYOUT
 # =========================
-filename = "figure_threads_2x2_bar_final.png"
-plt.savefig(filename, bbox_inches="tight")
+for ax in axes.ravel():
+    force_mdpi_y_ticks(ax)
+
+# =========================
+# SAVE
+# Use a new filename to avoid Overleaf/image cache issue
+# =========================
+filename = "figure_threads_2x2_bar_final_commas.png"
+plt.savefig(filename, bbox_inches="tight", dpi=300)
 
 print("Saved:", filename)

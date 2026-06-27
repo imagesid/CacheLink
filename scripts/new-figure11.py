@@ -1,6 +1,7 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.ticker import StrMethodFormatter
 
 # ============================================
 # Step 1: Fix broken CSV rows
@@ -27,10 +28,10 @@ def load_clean_csv(file):
             rows.append(buffer)
 
     columns = [
-        "mode","workload","policy","distribution",
-        "runtime_ms","throughput_ops","read_ops",
-        "avg_lat_us","min_lat_us","max_lat_us",
-        "p50_us","p95_us","p99_us"
+        "mode", "workload", "policy", "distribution",
+        "runtime_ms", "throughput_ops", "read_ops",
+        "avg_lat_us", "min_lat_us", "max_lat_us",
+        "p50_us", "p95_us", "p99_us"
     ]
 
     clean_rows = []
@@ -123,23 +124,33 @@ for col_idx, dist in enumerate(distributions):
                 runtime[p].append(0)
                 throughput[p].append(0)
 
-    # top row: runtime
+    # Scale runtime to avoid Matplotlib showing "1e6"
+    runtime_million = {
+        p: [v / 1e6 for v in runtime[p]]
+        for p in policies
+    }
+
+    # ---------- Top row: runtime ----------
     ax_rt = axes[0, col_idx]
     for i, p in enumerate(policies):
-        ax_rt.bar(x + i * width, runtime[p], width, color=colors[p])
+        ax_rt.bar(x + i * width, runtime_million[p], width, color=colors[p])
 
     ax_rt.set_xticks(x + width * 1.5)
     ax_rt.set_xticklabels(workloads)
     ax_rt.spines["top"].set_visible(False)
     ax_rt.spines["right"].set_visible(False)
 
+    # Scientific notation in axis label, not as "1e6"
+    ax_rt.set_ylabel(r"Runtime ($\times 10^6$ ms)")
+    # ax_rt.yaxis.set_major_formatter(StrMethodFormatter("{x:g}"))
+    ax_rt.yaxis.get_offset_text().set_visible(False)
+
     if col_idx == 0:
-        ax_rt.set_ylabel("Runtime (ms)")
         ax_rt.set_title("(a) Uniform")
     else:
         ax_rt.set_title("(b) Zipfian")
 
-    # bottom row: throughput
+    # ---------- Bottom row: throughput ----------
     ax_tp = axes[1, col_idx]
     for i, p in enumerate(policies):
         ax_tp.bar(x + i * width, throughput[p], width, color=colors[p])
@@ -149,8 +160,12 @@ for col_idx, dist in enumerate(distributions):
     ax_tp.spines["top"].set_visible(False)
     ax_tp.spines["right"].set_visible(False)
 
+    # Thousand comma separator for throughput axis
+    ax_tp.set_ylabel("Throughput (ops/sec)")
+    # ax_tp.yaxis.set_major_formatter(StrMethodFormatter("{x:,.0f}"))
+    ax_tp.yaxis.get_offset_text().set_visible(False)
+
     if col_idx == 0:
-        ax_tp.set_ylabel("Throughput (ops/sec)")
         ax_tp.set_title("(c) Uniform")
     else:
         ax_tp.set_title("(d) Zipfian")

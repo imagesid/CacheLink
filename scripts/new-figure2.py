@@ -6,6 +6,9 @@ import io
 import pandas as pd
 import matplotlib.pyplot as plt
 
+from matplotlib.ticker import StrMethodFormatter
+from matplotlib.ticker import FuncFormatter
+
 
 data = """mode,latency_us,qps,seconds,operations,mbps
 baseline_no_secondary_cache,10118.188,98,303.536,29999,0.4
@@ -19,6 +22,15 @@ cachelink_nvme_LRU_1.0.device,4667.745,214,303.399,64999,0.8
 
 
 df = pd.read_csv(io.StringIO(data))
+
+# ============================================
+# MDPI formatter
+# 10000 -> 10,000
+# 4000  -> 4000
+# ============================================
+def mdpi_number(x, pos=None):
+    x = int(round(float(x)))
+    return f"{x:,}" if abs(x) >= 10000 else f"{x}"
 
 # ============================================
 # LABELS
@@ -95,6 +107,7 @@ def draw_bar(ax, metric, ylabel, title, value_format):
         bar.set_hatch(hatch)
 
     ax.set_ylabel(ylabel)
+    ax.yaxis.set_major_formatter(FuncFormatter(mdpi_number))
     ax.set_title(title, fontsize=9)
 
     ax.spines["top"].set_visible(False)
@@ -120,12 +133,34 @@ def draw_bar(ax, metric, ylabel, title, value_format):
         ax.text(
             bar.get_x() + bar.get_width() / 2,
             height + ymax * 0.025,
-            value_format.format(height),
+            mdpi_number(height),
             ha="center",
             va="bottom",
             fontsize=6.5,
         )
 
+
+# # ============================================
+# # Latency
+# # ============================================
+# draw_bar(
+#     axes[0],
+#     metric="latency_us",
+#     ylabel="Latency (μs)",
+#     title="Latency",
+#     value_format="{:.0f}",
+# )
+
+# # ============================================
+# # Throughput
+# # ============================================
+# draw_bar(
+#     axes[1],
+#     metric="qps",
+#     ylabel="Throughput (QPS)",
+#     title="Throughput",
+#     value_format="{:.0f}",
+# )
 
 # ============================================
 # Latency
@@ -135,7 +170,7 @@ draw_bar(
     metric="latency_us",
     ylabel="Latency (μs)",
     title="Latency",
-    value_format="{:.0f}",
+    value_format="{:,.0f}",
 )
 
 # ============================================
@@ -146,7 +181,7 @@ draw_bar(
     metric="qps",
     ylabel="Throughput (QPS)",
     title="Throughput",
-    value_format="{:.0f}",
+    value_format="{:,.0f}",
 )
 
 plt.tight_layout(w_pad=1.4)

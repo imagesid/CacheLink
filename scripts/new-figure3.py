@@ -6,6 +6,11 @@ import io
 import pandas as pd
 import matplotlib.pyplot as plt
 
+from matplotlib.ticker import StrMethodFormatter
+
+from matplotlib.ticker import FuncFormatter
+
+
 data = """mode,latency_us,qps,seconds,operations,mbps
 baseline_nvme,12714.603,78,305.138,23999,0.3
 cachelink_nvme_LRU_0.2,8571.785,116,300.004,34999,0.5
@@ -38,6 +43,17 @@ cachelink_nvme_TinyLFU_1.0,4016.635,248,301.244,74999,1.0
 """
 
 df = pd.read_csv(io.StringIO(data))
+
+
+
+# =========================
+# MDPI formatter
+# 10000 -> 10,000
+# 7500  -> 7500
+# =========================
+def mdpi_number(x, pos=None):
+    x = int(round(float(x)))
+    return f"{x:,}" if abs(x) >= 10000 else f"{x}"
 
 # =========================
 # PARSE
@@ -94,6 +110,11 @@ lat_handle = None
 for i, policy in enumerate(policies):
     ax1 = axes[i]
     ax2 = ax1.twinx()
+    
+    
+    # MDPI number style: comma only for five or more digits
+    ax1.yaxis.set_major_formatter(FuncFormatter(mdpi_number))
+    ax2.yaxis.set_major_formatter(FuncFormatter(mdpi_number))
 
     sub = df2[df2["policy"].isin([policy, "Baseline"])]
 
@@ -154,7 +175,7 @@ for i, policy in enumerate(policies):
         ax1.set_ylabel("")
 
     if i == len(policies) - 1:
-        ax2.set_ylabel("Latency (us)")
+        ax2.set_ylabel("Latency (µs)")
     else:
         ax2.set_ylabel("")
 

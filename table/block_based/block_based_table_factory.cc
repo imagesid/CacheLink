@@ -485,7 +485,7 @@ void BlockBasedTableFactory::InitializeOptions() {
       co.secondary_cache = global_sec_cache;
 
     } else {
-      std::cerr << "[No CacheLink]" << std::endl;
+      // std::cerr << "[No CacheLink]" << std::endl;
     }
     table_options_.block_cache = NewLRUCache(co);
     
