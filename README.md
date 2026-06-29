@@ -88,34 +88,33 @@ make -j$(nproc) db_bench
 
 ## 2. Fill the Database on the NFS Target Server
 
-Copy fill.py from CacheLink repo to rocksdb folder:
+Copy fill.py and fill-YCSB.sh from CacheLink repo to rocksdb folder:
 
-Open the fill script:
-
-```bash
-vim fill.sh
-```
-
-Change the target database directory inside `fill.sh`.
+Change the target database directory inside `fill.sh` and `fill-YCSB.sh.
 
 Example:
 
+Edit this in fill.sh
 ```bash
-DB_PATH="/export/rocksdb_data"
+DB_PATH="/export/rocksdb_bench3"
 ```
 
-The exact variable name may differ depending on the script. The important point is that the database path should point to the directory exported by the NFS server.
+Edit this in fill-YCSB.sh
+```bash
+DB_BASE_DIR="/export"
+```
 
 Run the fill script:
 
 ```bash
 bash fill.sh
+bash fill-YCSB.sh
 ```
 
 After the script finishes, check that the RocksDB files were created:
 
 ```bash
-ls -lah /export/rocksdb_data
+ls -lah /export/rocksdb_bench3
 ```
 
 The directory should contain RocksDB database files such as `.sst`, `CURRENT`, `MANIFEST`, `OPTIONS`, and `LOG`.
