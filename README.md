@@ -25,14 +25,56 @@
 
 ## Important Notice
 
-The database should be created first on the NFS target storage. After that, the benchmark server mounts the NFS path and runs read experiments using `--use_existing_db=1`.
+The database must be created on the NFS target storage before running the experiments. After the database is prepared, the benchmark server should mount the NFS path and run the read-only experiments using `--use_existing_db=1`.
+
+At least two nodes are required:
+
+1. **NFS data server**: stores the prebuilt RocksDB/YCSB databases.
+2. **CacheLink benchmark server**: mounts the NFS path and runs the CacheLink experiments.
 
 ---
+
 # Preparing NFS Data
+
+The fastest way to prepare the data is to download the prebuilt datasets.
+
+Download the datasets from:
+
+```text
+https://zenodo.org/records/21016796
+```
+
+After downloading, place the dataset archives on the NFS data server under a shared directory and extract them there.
+
+Example location:
+
+```text
+/export
+```
+
+The dataset contains the following folders:
+
+### db_bench Dataset
+
+* `rocksdb_bench3` — 7.7 GB
+
+### YCSB Datasets
+
+* `db1m_workloada` — 1.6 GB
+* `db1m_workloadb` — 1.6 GB
+* `db1m_workloadc` — 1.1 GB
+* `db1m_workloadd` — 1.3 GB
+* `db1m_workloadf` — 1.8 GB
+
+Alternatively, if you prefer to build the datasets manually, follow the tutorial below.
+
+
+<details>
+<summary>Click to expand: Preparing the NFS Database (Manual)</summary>
 
 ## 1. Preparing the NFS Database
 
-For remote-storage experiments, the RocksDB database should be created first on the NFS target server. We must install RocksDB db_bench on the NFS target server to create a db.
+For remote-storage experiments, the RocksDB database should be created first on the NFS target server. We must install RocksDB `db_bench` on the NFS target server to create the database.
 
 ```bash
 git clone https://github.com/facebook/rocksdb.git
@@ -40,6 +82,9 @@ cd rocksdb
 git checkout v8.10.0
 make -j$(nproc) db_bench
 ```
+
+
+
 
 ## 2. Fill the Database on the NFS Target Server
 
@@ -74,14 +119,14 @@ ls -lah /export/rocksdb_data
 ```
 
 The directory should contain RocksDB database files such as `.sst`, `CURRENT`, `MANIFEST`, `OPTIONS`, and `LOG`.
+</details>
 
----
 
-## 3. Mount NFS on the Benchmark Server
+## 1. Mount NFS on the Benchmark Server
 
 After the database has been filled on the NFS target server and the NFS export is ready, mount the exported directory on the benchmark server.
 
-### 3.1 Create a Local Mount Directory
+### 1.1 Create a Local Mount Directory
 
 ```bash
 mkdir -p <LOCAL_NFS_MOUNT_DIR>
@@ -93,7 +138,7 @@ Example:
 mkdir -p /home/agung/rocksdb_nfs
 ```
 
-### 3.2 Mount the NFS Export
+### 1.2 Mount the NFS Export
 
 ```bash
 mount -t nfs -o nfsvers=4.1,tcp,sync \
@@ -105,7 +150,7 @@ Example:
 
 ```bash
 mount -t nfs -o nfsvers=4.1,tcp,sync \
-  220.221.110.xxx:/export/rocksdb_data \
+  220.221.110.xxx:/export \
   /home/agung/rocksdb_nfs
 ```
 
@@ -117,7 +162,7 @@ Replace the placeholders with your own environment values.
 | `<NFS_EXPORT_PATH>` | Exported directory path on the NFS server |
 | `<LOCAL_NFS_MOUNT_DIR>` | Local mount point on the benchmark server |
 
-### 9.3 Check the NFS Mount
+### 1.3 Check the NFS Mount
 
 ```bash
 df -h | grep <LOCAL_NFS_MOUNT_DIR>
