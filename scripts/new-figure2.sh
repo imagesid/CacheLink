@@ -2,9 +2,9 @@
 
 set -e
 
-## This is for devices 5 minutes for LRU
-## Target: what device is the fastest
 
+## Target: what device is the fastest
+DB_BENCH_BIN="/workspace/CacheLink/db_bench"
 DB_PATH="/workspace/mp3/rocksdb_bench3" 
 
 NUM=3000000
@@ -12,7 +12,7 @@ VALUE_SIZE=4096
 BLOCK_SIZE=16384
 L1_SIZE=33554432 #32MB
 
-CSV="scripts/figure-additional1.csv"
+CSV="scripts/new-figure2.csv" 
 
 # echo "time,mode,qps,latency_us" > $CSV
 echo "mode,latency_us,qps,seconds,operations,mbps" > $CSV
@@ -87,66 +87,26 @@ parse_final () {
 }
 
 # -----------------------------
-# Fill DB (only once)
-# -----------------------------
-# echo "Filling DB..."
-# rm -rf $DB_PATH
-
-# /workspace/rocksdb/db_bench \
-#   --benchmarks=fillrandom \
-#   $FILL_COMMON_FLAGS > /dev/null
-
-# -----------------------------
 # BASELINE (NO L2)
 # -----------------------------
-# echo "Running BASELINE..."
+echo "Running BASELINE..."
 
-# sync
-# echo 3 | sudo tee /proc/sys/vm/drop_caches > /dev/null
+sync
+echo 3 | sudo tee /proc/sys/vm/drop_caches > /dev/null
 
-# # nfsstat -c > nfs_before.txt
+# nfsstat -c > nfs_before.txt
 
-# /workspace/rocksdb/db_bench \
-#   --benchmarks=readrandom \
-#   --use_existing_db=1 \
-#   --duration=300 \
-#   $COMMON_FLAGS \
-#   > baseline_nvme_devicec.txt 2>&1
+"$DB_BENCH_BIN" \
+  --benchmarks=readrandom \
+  --use_existing_db=1 \
+  --duration=300 \
+  $COMMON_FLAGS \
+  > baseline_figure2.txt 2>&1
 
-# # nfsstat -c > nfs_after.txt
+parse_final baseline_figure2.txt "baseline_figure2" 
 
-# # diff -u nfs_before.txt nfs_after.txt
 
-# parse_final baseline_nvme_devicec.txt "baseline_nvme_device" 
 
-# -----------------------------
-# FUNCTION: run cachelink on device
-# -----------------------------
-run_cachelink () {
-  DEVICE_NAME=$1
-  CACHE_PATH=$2
-  EVICTION=$3
-  ADM_PROB=$4
-
-  echo "Running CacheLink on $DEVICE_NAME..."
-
-  sync
-  echo 3 | sudo tee /proc/sys/vm/drop_caches > /dev/null
-
-  rm -rf $CACHE_PATH
-  # mkdir -p $CACHE_PATH
-
-  /workspace/rocksdb/db_bench \
-    --benchmarks=readrandom \
-    --use_existing_db=1 \
-    --duration=300 \
-    --secondary_cache_uri="id=CacheLink" \
-    --cachelink="size=1073741824,eviction=$EVICTION,adm_policy=random,adm_prob=$ADM_PROB,file=$CACHE_PATH" \
-    $COMMON_FLAGS \
-    > ${DEVICE_NAME}c.txt 2>&1
-
-  parse_final ${DEVICE_NAME}c.txt "$DEVICE_NAME"
-}
 run_rocksdb_sec () {
   DEVICE_NAME=$1
 #   CACHE_PATH=$2
@@ -161,16 +121,16 @@ run_rocksdb_sec () {
   rm -rf $CACHE_PATH
   # mkdir -p $CACHE_PATH
 
-  /workspace/rocksdb/db_bench \
+  "$DB_BENCH_BIN" \
     --benchmarks=readrandom \
     --use_existing_db=1 \
     --duration=300 \
     --use_compressed_secondary_cache=true \
     --compressed_secondary_cache_size=1073741824 \
     $COMMON_FLAGS \
-    > ${DEVICE_NAME}c.txt 2>&1
+    > ${DEVICE_NAME}.txt 2>&1
 
-  parse_final ${DEVICE_NAME}c.txt "$DEVICE_NAME"
+  parse_final ${DEVICE_NAME}.txt "$DEVICE_NAME"
 }
 
 run_rocksdb_sec "rocksdb-sec"
@@ -189,37 +149,40 @@ run_cachelink () {
   rm -rf $CACHE_PATH
   # mkdir -p $CACHE_PATH
 
-  /workspace/rocksdb/db_bench \
+  "$DB_BENCH_BIN" \
     --benchmarks=readrandom \
     --use_existing_db=1 \
     --duration=300 \
     --secondary_cache_uri="id=CacheLink" \
     --cachelink="size=1073741824,eviction=$EVICTION,adm_policy=random,adm_prob=$ADM_PROB,file=$CACHE_PATH" \
     $COMMON_FLAGS \
-    > ${DEVICE_NAME}c.txt 2>&1
+    > ${DEVICE_NAME}.txt 2>&1
 
-  parse_final ${DEVICE_NAME}c.txt "$DEVICE_NAME"
+  parse_final ${DEVICE_NAME}.txt "$DEVICE_NAME"
 }
 
-# # -----------------------------
-# # Run for each device (L2 location)
-# # -----------------------------
-# # run_cachelink "cachelink_hdd"   "/mnt/hdd2/cache_file"     # sdc → HDD ✅
-# # run_cachelink "cachelink_ssd1"  "/workspace/CacheLink/cache_file"  # sda → SSD ✅
-# # run_cachelink "cachelink_ssd2"  "/mnt/hdd1/cache_file"     # sdb → SSD ✅
 
-# ADM_PROBS=(1.0)
-# DEVICES=("/mnt/hdd2/cache_file" "/workspace/CacheLink/cache_file" "/mnt/hdd1/cache_file" "/mnt/nvme/cache_file")
-# for DEVICE in "${DEVICES[@]}"; do
-# for PROB in "${ADM_PROBS[@]}"; do
-#     run_cachelink "cachelink_nvme_LRU_$PROB.device"  $DEVICE LRU $PROB     # NVMe ✅
-#     # run_cachelink "cachelink_nvme_LRU2Q_$PROB"  $DEVICE LRU2Q $PROB     # NVMe ✅
-#     # run_cachelink "cachelink_nvme_TinyLFU_$PROB"  $DEVICE TinyLFU $PROB     # NVMe ✅
-# done
-# done
-# # -----------------------------
-# # DONE
-# # -----------------------------
+ADM_PROBS=(1.0)
+
+DEVICE_NAMES=("hdd" "workspace_ssd" "ssd" "nvme")
+DEVICE_PATHS=(
+  "/mnt/hdd/cache_file"
+  "/workspace/CacheLink/cache_file"
+  "/mnt/ssd/cache_file"
+  "/mnt/nvme/cache_file"
+)
+
+for i in "${!DEVICE_PATHS[@]}"; do
+  DEVICE_NAME="${DEVICE_NAMES[$i]}"
+  DEVICE="${DEVICE_PATHS[$i]}"
+
+  for PROB in "${ADM_PROBS[@]}"; do
+    run_cachelink "cachelink_${DEVICE_NAME}_LRU_${PROB}.device" "$DEVICE" LRU "$PROB"
+  done
+done
+# -----------------------------
+# DONE
+# -----------------------------
 echo "======================================"
 echo "DONE. Results saved to $CSV"
 echo "======================================"

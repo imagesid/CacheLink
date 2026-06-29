@@ -4,7 +4,7 @@ set -e
 
 ## This is for nvme with LRU, LRU2Q and TinyLFU with probs (0.2~1)
 ## Target: which policy and probs is best
-
+DB_BENCH_BIN="/workspace/CacheLink/db_bench"
 DB_PATH="/workspace/mp3/rocksdb_bench3"
 
 NUM=3000000
@@ -12,7 +12,7 @@ VALUE_SIZE=4096
 BLOCK_SIZE=16384
 L1_SIZE=33554432 #32MB
 
-CSV="scripts/figure1b.csv"
+CSV="scripts/new-figure3.csv"
 
 # echo "time,mode,qps,latency_us" > $CSV
 echo "mode,latency_us,qps,seconds,operations,mbps" > $CSV
@@ -86,15 +86,6 @@ parse_final () {
   fi
 }
 
-# -----------------------------
-# Fill DB (only once)
-# -----------------------------
-# echo "Filling DB..."
-# rm -rf $DB_PATH
-
-# /workspace/rocksdb/db_bench \
-#   --benchmarks=fillrandom \
-#   $FILL_COMMON_FLAGS > /dev/null
 
 # -----------------------------
 # BASELINE (NO L2)
@@ -104,14 +95,14 @@ echo "Running BASELINE..."
 sync
 echo 3 | sudo tee /proc/sys/vm/drop_caches > /dev/null
 
-/workspace/rocksdb/db_bench \
+"$DB_BENCH_BIN" \
   --benchmarks=readrandom \
   --use_existing_db=1 \
   --duration=300 \
   $COMMON_FLAGS \
-  > baseline_nvmeb.txt 2>&1
+  > baseline_figure3.txt 2>&1
 
-parse_final baseline_nvmeb.txt "baseline_nvme" 
+parse_final baseline_figure3.txt "baseline_figure3" 
 
 # -----------------------------
 # FUNCTION: run cachelink on device
@@ -130,30 +121,24 @@ run_cachelink () {
   rm -rf $CACHE_PATH
   # mkdir -p $CACHE_PATH
 
-  /workspace/rocksdb/db_bench \
+  "$DB_BENCH_BIN" \
     --benchmarks=readrandom \
     --use_existing_db=1 \
     --duration=300 \
     --secondary_cache_uri="id=CacheLink" \
     --cachelink="size=1073741824,eviction=$EVICTION,adm_policy=random,adm_prob=$ADM_PROB,file=$CACHE_PATH" \
     $COMMON_FLAGS \
-    > ${DEVICE_NAME}b.txt 2>&1
+    > ${DEVICE_NAME}.txt 2>&1
 
-  parse_final ${DEVICE_NAME}b.txt "$DEVICE_NAME"
+  parse_final ${DEVICE_NAME}.txt "$DEVICE_NAME"
 }
 
-# -----------------------------
-# Run for each device (L2 location)
-# -----------------------------
-# run_cachelink "cachelink_hdd"   "/mnt/hdd2/cache_file"     # sdc → HDD ✅
-# run_cachelink "cachelink_ssd1"  "/workspace/CacheLink/cache_file"  # sda → SSD ✅
-# run_cachelink "cachelink_ssd2"  "/mnt/hdd1/cache_file"     # sdb → SSD ✅
 
 ADM_PROBS=(0.2 0.5 0.8 1.0)
 for PROB in "${ADM_PROBS[@]}"; do
-    run_cachelink "cachelink_nvme_LRU_$PROB"  "/mnt/nvme/cache_file" LRU $PROB     # NVMe ✅
-    run_cachelink "cachelink_nvme_LRU2Q_$PROB"  "/mnt/nvme/cache_file" LRU2Q $PROB     # NVMe ✅
-    run_cachelink "cachelink_nvme_TinyLFU_$PROB"  "/mnt/nvme/cache_file" TinyLFU $PROB     # NVMe ✅
+    run_cachelink "cachelink_nvme_LRU_$PROB"  "/mnt/nvme/cache_file" LRU $PROB     
+    run_cachelink "cachelink_nvme_LRU2Q_$PROB"  "/mnt/nvme/cache_file" LRU2Q $PROB    
+    run_cachelink "cachelink_nvme_TinyLFU_$PROB"  "/mnt/nvme/cache_file" TinyLFU $PROB    
 done
 # -----------------------------
 # DONE

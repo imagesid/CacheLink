@@ -12,22 +12,7 @@ from matplotlib.ticker import FuncFormatter
 
 
 data = """mode,latency_us,qps,seconds,operations,mbps
-baseline_nvme,12714.603,78,305.138,23999,0.3
-cachelink_nvme_LRU_0.2,8571.785,116,300.004,34999,0.5
-cachelink_nvme_LRU2Q_0.2,8648.059,115,302.673,34999,0.5
-cachelink_nvme_TinyLFU_0.2,7440.603,134,305.057,40999,0.5
-cachelink_nvme_LRU_0.5,7710.944,129,300.719,38999,0.5
-cachelink_nvme_LRU2Q_0.5,7747.851,129,302.159,38999,0.5
-cachelink_nvme_TinyLFU_0.5,6782.282,147,305.196,44999,0.6
-cachelink_nvme_LRU_0.8,7060.917,141,303.612,42999,0.6
-cachelink_nvme_LRU2Q_0.8,7164.211,139,300.890,41999,0.5
-cachelink_nvme_TinyLFU_0.8,6405.792,156,301.066,46999,0.6
-cachelink_nvme_LRU_1.0,6940.851,144,305.391,43999,0.6
-cachelink_nvme_LRU2Q_1.0,6888.126,145,303.071,43999,0.6
-cachelink_nvme_TinyLFU_1.0,6187.117,161,303.163,48999,0.6"""
-
-data = """mode,latency_us,qps,seconds,operations,mbps
-baseline_nvme,10187.979,98,305.629,29999,0.4
+baseline_figure3,10187.979,98,305.629,29999,0.4
 cachelink_nvme_LRU_0.2,5663.573,176,300.164,52999,0.7
 cachelink_nvme_LRU2Q_0.2,5823.688,171,302.826,51999,0.7
 cachelink_nvme_TinyLFU_0.2,4632.972,215,301.139,64999,0.8
@@ -46,11 +31,6 @@ df = pd.read_csv(io.StringIO(data))
 
 
 
-# =========================
-# MDPI formatter
-# 10000 -> 10,000
-# 7500  -> 7500
-# =========================
 def mdpi_number(x, pos=None):
     x = int(round(float(x)))
     return f"{x:,}" if abs(x) >= 10000 else f"{x}"
@@ -61,7 +41,7 @@ def mdpi_number(x, pos=None):
 rows = []
 for _, row in df.iterrows():
     mode = row["mode"]
-    if mode == "baseline_nvme":
+    if mode == "baseline_figure3":
         rows.append({
             "policy": "Baseline",
             "ratio": "baseline",
@@ -193,7 +173,7 @@ fig.legend(
 
 plt.tight_layout(rect=[0, 0.10, 1, 1])
 
-filename = "figure1_dual_axis_fixed.png"
+filename = "new-figure3.png"
 plt.savefig(filename, bbox_inches="tight")
 
 print("Saved:", filename)

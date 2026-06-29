@@ -11,14 +11,15 @@ from matplotlib.ticker import FuncFormatter
 
 
 data = """mode,latency_us,qps,seconds,operations,mbps
-baseline_no_secondary_cache,10118.188,98,303.536,29999,0.4
+baseline_figure2,10118.188,98,303.536,29999,0.4
 rocksdb-sec,4002.519,249,300.185,74999,1.0
 sas_cache_nvme,8768.141,114,306.876,34999,0.4
 cachelink_hdd_LRU_1.0.device,7506.200,133,300.241,39999,0.5
-cachelink_ssd1_LRU_1.0.device,4955.297,201,302.268,60999,0.8
-cachelink_ssd2_LRU_1.0.device,4733.032,211,302.909,63999,0.8
+cachelink_workspace_ssd_LRU_1.0.device,4955.297,201,302.268,60999,0.8
+cachelink_ssd_LRU_1.0.device,4733.032,211,302.909,63999,0.8
 cachelink_nvme_LRU_1.0.device,4667.745,214,303.399,64999,0.8
 """
+
 
 
 df = pd.read_csv(io.StringIO(data))
@@ -36,12 +37,12 @@ def mdpi_number(x, pos=None):
 # LABELS
 # ============================================
 label_map = {
-    "baseline_no_secondary_cache": "baseline",
+    "baseline_figure2": "baseline",
     "rocksdb-sec": "RAM-sec",
     "sas_cache_nvme": "SAS-Cache",
     "cachelink_hdd_LRU_1.0.device": "HDD",
-    "cachelink_ssd1_LRU_1.0.device": "SATA1",
-    "cachelink_ssd2_LRU_1.0.device": "SATA2",
+    "cachelink_workspace_ssd_LRU_1.0.device": "SATA1",
+    "cachelink_ssd_LRU_1.0.device": "SATA2",
     "cachelink_nvme_LRU_1.0.device": "NVMe",
 }
 
@@ -186,8 +187,8 @@ draw_bar(
 
 plt.tight_layout(w_pad=1.4)
 
-filename = "cachelink_baseline_comparison.png"
+filename = "new-figure2.png"
 plt.savefig(filename, bbox_inches="tight", dpi=300)
-plt.savefig("cachelink_baseline_comparison.pdf", bbox_inches="tight")
+# plt.savefig("cachelink_baseline_comparison.pdf", bbox_inches="tight")
 
 print("Saved:", filename)

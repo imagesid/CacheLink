@@ -21,39 +21,15 @@ def mdpi_number(x, pos=None):
     x = int(round(float(x)))
     return f"{x:,}" if abs(x) >= 10000 else f"{x}"
 
-# =========================
-# INPUT DATA
-# =========================
-data = """mode,latency_us,qps,seconds,operations,mbps
-baseline_nvme_8388608,13698.610,73,301.356,21999,0.3
-cachelink_nvme_TinyLFU_1.0.8388608,6210.307,161,304.299,48999,0.6
-baseline_nvme_16777216,13189.474,75,303.345,22999,0.3
-cachelink_nvme_TinyLFU_1.0.16777216,6206.314,161,304.103,48999,0.6
-baseline_nvme_33554432,12912.989,77,309.899,23999,0.3
-cachelink_nvme_TinyLFU_1.0.33554432,6187.275,161,303.170,48999,0.6
-baseline_nvme_67108864,11701.011,85,304.215,25999,0.3
-cachelink_nvme_TinyLFU_1.0.67108864,6161.556,162,301.910,48999,0.6"""
 
 data = """mode,latency_us,qps,seconds,operations,mbps
-baseline_nvme_8388608,11141.952,89,300.822,26999,0.4
+baseline_figure4_33554432,10082.699,99,302.471,29999,0.4
 cachelink_nvmec_TinyLFU_1.0.8388608,4022.325,248,301.670,74999,1.0
-baseline_nvme_16777216,10746.011,93,300.878,27999,0.4
 cachelink_nvmec_TinyLFU_1.0.16777216,4061.649,246,300.558,73999,1.0
-baseline_nvme_33554432,10082.699,99,302.471,29999,0.4
 cachelink_nvmec_TinyLFU_1.0.33554432,4033.999,247,302.546,74999,1.0
-baseline_nvme_67108864,9002.411,111,306.073,33999,0.4
 cachelink_nvmec_TinyLFU_1.0.67108864,4001.437,249,300.104,74999,1.0
 """
-data = """mode,latency_us,qps,seconds,operations,mbps
-baseline_nvme_33554432,10082.699,99,302.471,29999,0.4
-cachelink_nvmec_TinyLFU_1.0.8388608,4022.325,248,301.670,74999,1.0
-baseline_nvme_16777216,10746.011,93,300.878,27999,0.4
-cachelink_nvmec_TinyLFU_1.0.16777216,4061.649,246,300.558,73999,1.0
-baseline_nvme_33554432,10082.699,99,302.471,29999,0.4
-cachelink_nvmec_TinyLFU_1.0.33554432,4033.999,247,302.546,74999,1.0
-baseline_nvme_67108864,9002.411,111,306.073,33999,0.4
-cachelink_nvmec_TinyLFU_1.0.67108864,4001.437,249,300.104,74999,1.0
-"""
+
 
 df = pd.read_csv(io.StringIO(data))
 
@@ -207,7 +183,7 @@ plt.subplots_adjust(bottom=0.25)
 # =========================
 # SAVE
 # =========================
-filename = "figure_main_clean.png"
+filename = "new-figure4.png"
 plt.savefig(filename, bbox_inches="tight")
 
 print("Saved:", filename)

@@ -5,6 +5,7 @@ set -e
 ## This is for best conf with multi L2
 ## Target: see which L2 size is good
 
+DB_BENCH_BIN="/workspace/CacheLink/db_bench"
 DB_PATH="/workspace/mp3/rocksdb_bench3"
 
 NUM=3000000
@@ -12,7 +13,7 @@ VALUE_SIZE=4096
 BLOCK_SIZE=16384
 L1_SIZE=33554432 #32MB
 
-CSV="scripts/figure3b.csv" 
+CSV="scripts/new-figure5.csv" 
 
 # echo "time,mode,qps,latency_us" > $CSV 
 echo "mode,latency_us,qps,seconds,operations,mbps" > $CSV
@@ -85,15 +86,7 @@ parse_final () {
   fi
 }
 
-# -----------------------------
-# Fill DB (only once)
-# -----------------------------
-# echo "Filling DB..."
-# rm -rf $DB_PATH
 
-# /workspace/rocksdb/db_bench \
-#   --benchmarks=fillrandom \
-#   $FILL_COMMON_FLAGS > /dev/null
 
 # -----------------------------
 # BASELINE (NO L2)
@@ -131,7 +124,7 @@ run_cachelink () {
   rm -rf $CACHE_PATH
   # mkdir -p $CACHE_PATH 1073741824 1GB
 
-  /workspace/rocksdb/db_bench \
+  "$DB_BENCH_BIN" \
     --benchmarks=readrandom \
     --use_existing_db=1 \
     --duration=300 \
@@ -139,41 +132,51 @@ run_cachelink () {
     --secondary_cache_uri="id=CacheLink" \
     --cachelink="size=$L2_SIZE,eviction=$EVICTION,adm_policy=random,adm_prob=$ADM_PROB,file=$CACHE_PATH" \
     $COMMON_FLAGS \
-    > ${DEVICE_NAME}b.txt 2>&1
+    > ${DEVICE_NAME}.txt 2>&1
 
-  parse_final ${DEVICE_NAME}b.txt "$DEVICE_NAME"
+  parse_final ${DEVICE_NAME}.txt "$DEVICE_NAME"
 }
 
-# -----------------------------
-# Run for each device (L2 location)
-# -----------------------------
-# run_cachelink "cachelink_hdd"   "/mnt/hdd2/cache_file"     # sdc → HDD ✅
-# run_cachelink "cachelink_ssd1"  "/workspace/CacheLink/cache_file"  # sda → SSD ✅
-# run_cachelink "cachelink_ssd2"  "/mnt/hdd1/cache_file"     # sdb → SSD ✅
+SIZE=33554432
+echo "Running BASELINE... $SIZE"
+
+sync
+echo 3 | sudo tee /proc/sys/vm/drop_caches > /dev/null
+
+"$DB_BENCH_BIN" \
+  --benchmarks=readrandom \
+  --use_existing_db=1 \
+  --duration=300 \
+  --cache_size=$SIZE \
+  $COMMON_FLAGS \
+  > baseline_figure5.txt 2>&1
+
+parse_final baseline_figure5.txt "baseline_figure5" 
+
 
 ADM_PROBS=(1.0) 
 L1_SIZES=(33554432)
 L2_SIZES=(268435456 536870912 1073741824 2147483648)
 
 for L2_SIZE in "${L2_SIZES[@]}"; do
-    SIZE=33554432
-    echo "Running BASELINE... $SIZE"
+    # SIZE=33554432
+    # echo "Running BASELINE... $SIZE"
 
-    sync
-    echo 3 | sudo tee /proc/sys/vm/drop_caches > /dev/null
+    # sync
+    # echo 3 | sudo tee /proc/sys/vm/drop_caches > /dev/null
 
-    /workspace/rocksdb/db_bench \
-      --benchmarks=readrandom \
-      --use_existing_db=1 \
-      --duration=300 \
-      --cache_size=$SIZE \
-      $COMMON_FLAGS \
-      > baseline_nvmeb_$SIZE.$L2_SIZE.txt 2>&1
+    # "$DB_BENCH_BIN" \
+    #   --benchmarks=readrandom \
+    #   --use_existing_db=1 \
+    #   --duration=300 \
+    #   --cache_size=$SIZE \
+    #   $COMMON_FLAGS \
+    #   > baseline_$SIZE.$L2_SIZE.txt 2>&1
 
-    parse_final baseline_nvmeb_$SIZE.$L2_SIZE.txt "baseline_nvme_$SIZE.$L2_SIZE" 
+    # parse_final baseline_nvmeb_$SIZE.$L2_SIZE.txt "baseline_nvme_$SIZE.$L2_SIZE" 
 
     for PROB in "${ADM_PROBS[@]}"; do
-        run_cachelink "cachelink_nvmeb_TinyLFU_$PROB.$SIZE.$L2_SIZE"  "/mnt/nvme/cache_file" TinyLFU $PROB $SIZE $L2_SIZE     # NVMe ✅
+        run_cachelink "cachelink_nvme_TinyLFU_$PROB.$SIZE.$L2_SIZE"  "/mnt/nvme/cache_file" TinyLFU $PROB $SIZE $L2_SIZE     # NVMe
     done
 done
 # -----------------------------

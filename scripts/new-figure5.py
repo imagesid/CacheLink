@@ -23,21 +23,16 @@ def mdpi_number(x, pos=None):
 # =========================
 # INPUT DATA
 # =========================
-data = """mode,latency_us,qps,seconds,operations,mbps
-baseline_nvme_33554432,160142.999,6,320.126,1999,0.0
-cachelink_nvme_TinyLFU_1.0.33554432.268435456,87091.353,11,348.278,3999,0.0
-cachelink_nvme_TinyLFU_1.0.33554432.536870912,9475.000,105,303.191,31999,0.4
-cachelink_nvme_TinyLFU_1.0.33554432.1073741824,4249.197,235,301.689,70999,0.9
-cachelink_nvme_TinyLFU_1.0.33554432.2147483648,4083.683,244,310.356,75999,1.0
-"""
+
 
 data = """mode,latency_us,qps,seconds,operations,mbps
-baseline_nvme_33554432.268435456,10199.700,98,305.981,29999,0.4
-cachelink_nvmeb_TinyLFU_1.0.33554432.268435456,4385.813,228,302.617,68999,0.9
-cachelink_nvmeb_TinyLFU_1.0.33554432.536870912,4166.937,239,300.015,71999,0.9
-cachelink_nvmeb_TinyLFU_1.0.33554432.1073741824,4018.306,248,301.369,74999,1.0
-cachelink_nvmeb_TinyLFU_1.0.33554432.2147483648,4006.560,249,300.488,74999,1.0
+baseline_figure5,10199.700,98,305.981,29999,0.4
+cachelink_nvme_TinyLFU_1.0.33554432.268435456,4385.813,228,302.617,68999,0.9
+cachelink_nvme_TinyLFU_1.0.33554432.536870912,4166.937,239,300.015,71999,0.9
+cachelink_nvme_TinyLFU_1.0.33554432.1073741824,4018.306,248,301.369,74999,1.0
+cachelink_nvme_TinyLFU_1.0.33554432.2147483648,4006.560,249,300.488,74999,1.0
 """
+
 
 df = pd.read_csv(io.StringIO(data))
 
@@ -199,7 +194,7 @@ plt.subplots_adjust(bottom=0.25)
 # =========================
 # SAVE
 # =========================
-filename = "figure_secondary_cache_scaling.png"
+filename = "new-figure5.png"
 plt.savefig(filename, bbox_inches="tight")
 
 print("Saved:", filename)

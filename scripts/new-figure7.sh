@@ -4,6 +4,7 @@ set -e
 
 ## Target: compare device performance using time series
 
+DB_BENCH_BIN="/workspace/test/CacheLink/db_bench"
 DB_PATH="/workspace/mp3/rocksdb_bench3"
 
 NUM=3000000
@@ -58,10 +59,10 @@ echo "Running BASELINE..."
 sync
 echo 3 | sudo tee /proc/sys/vm/drop_caches > /dev/null
 
-BASE_TXT="$OUTPUT_DIR/baseline_nvme_tsb.txt"
-BASE_CSV="$OUTPUT_DIR/baseline_nvme_tsb.csv"
+BASE_TXT="$OUTPUT_DIR/baseline_nvme_ts.txt"
+BASE_CSV="$OUTPUT_DIR/baseline_nvme_ts.csv"
 
-/workspace/rocksdb/db_bench \
+"$DB_BENCH_BIN" \
   --benchmarks=readrandom \
   --use_existing_db=1 \
   --duration=3600 \
@@ -86,10 +87,10 @@ run_cachelink () {
 
   rm -rf $CACHE_PATH
 
-  OUT_TXT="$OUTPUT_DIR/${DEVICE_NAME}_tsb.txt"
-  OUT_CSV="$OUTPUT_DIR/${DEVICE_NAME}_tsb.csv"
+  OUT_TXT="$OUTPUT_DIR/${DEVICE_NAME}_ts.txt"
+  OUT_CSV="$OUTPUT_DIR/${DEVICE_NAME}_ts.csv"
 
-  /workspace/rocksdb/db_bench \
+  "$DB_BENCH_BIN" \
     --benchmarks=readrandom \
     --use_existing_db=1 \
     --duration=3600 \
@@ -107,9 +108,9 @@ run_cachelink () {
 ADM_PROBS=(1.0)
 
 DEVICES=(
-  "/mnt/hdd2/cache_file"
+  "/mnt/hdd/cache_file"
   "/workspace/CacheLink/cache_file"
-  "/mnt/hdd1/cache_file"
+  "/mnt/ssd/cache_file"
   "/mnt/nvme/cache_file"
 )
 
