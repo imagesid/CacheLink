@@ -120,3 +120,8 @@ scripts/perf_cpu_profile/
 scripts/cpu_mem_compare/
 *.txt
 *.png
+# Ignore old scripts, keep only new-* scripts tracked
+scripts/*
+!scripts/new-*
+!scripts/new-*/
+!scripts/new-*/**
