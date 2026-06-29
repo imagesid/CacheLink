@@ -118,6 +118,8 @@ ls -lah /export/rocksdb_bench3
 ```
 
 The directory should contain RocksDB database files such as `.sst`, `CURRENT`, `MANIFEST`, `OPTIONS`, and `LOG`.
+
+For YCSB installation on the NFS data server, follow the similar installation steps described for the benchmark server in the later section.
 </details>
 
 
