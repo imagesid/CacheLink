@@ -66,11 +66,11 @@ def get_markevery(x, n_markers=5):
 # ============================================
 # Load
 # ============================================
-t_base, q_base, lat_base = parse_file("scripts/baseline_nvme_tsb.txt")
-t_hdd, q_hdd, lat_hdd = parse_file("scripts/cachelink_hdd_TinyLFU_1.0_tsb.txt")
-t_ssd1, q_ssd1, lat_ssd1 = parse_file("scripts/cachelink_ssd1_TinyLFU_1.0_tsb.txt")
-t_ssd2, q_ssd2, lat_ssd2 = parse_file("scripts/cachelink_ssd2_TinyLFU_1.0_tsb.txt")
-t_nvme, q_nvme, lat_nvme = parse_file("scripts/cachelink_nvme_TinyLFU_1.0_tsb.txt")
+t_base, q_base, lat_base = parse_file("scripts/baseline_nvme_ts.txt")
+t_hdd, q_hdd, lat_hdd = parse_file("scripts/cachelink_hdd_TinyLFU_1.0_ts.txt")
+t_ssd1, q_ssd1, lat_ssd1 = parse_file("scripts/cachelink_ssd1_TinyLFU_1.0_ts.txt")
+t_ssd2, q_ssd2, lat_ssd2 = parse_file("scripts/cachelink_ssd2_TinyLFU_1.0_ts.txt")
+t_nvme, q_nvme, lat_nvme = parse_file("scripts/cachelink_nvme_TinyLFU_1.0_ts.txt")
 
 
 # ============================================

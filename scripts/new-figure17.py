@@ -9,7 +9,7 @@ import numpy as np
 # =========================
 # LOAD CSV
 # =========================
-df = pd.read_csv("scripts/figure10-big.csv")
+df = pd.read_csv("scripts/new-figure17.csv")
 
 df = df[df["threads"].notna()]
 df = df[df["throughput_ops"].notna()]
@@ -225,7 +225,7 @@ for ax in axes.ravel():
 # SAVE
 # Use a new filename to avoid Overleaf/image cache issue
 # =========================
-filename = "figure_threads_2x2_bar_final_commas.png"
+filename = "new-figure17.png"
 plt.savefig(filename, bbox_inches="tight", dpi=300)
 
 print("Saved:", filename)

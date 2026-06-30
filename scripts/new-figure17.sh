@@ -19,12 +19,13 @@ RECORDCOUNT=1000000
 OPCOUNT=1000000
 # THREADS=16
 
-LOG_DIR="/workspace/rocksdb/scripts/logs"
-CSV="/workspace/rocksdb/scripts/figure10-big.csv"
+YCSB_DIR=/workspace/YCSB
+LOG_DIR="/workspace/CacheLink/scripts/logs"
+CSV="/workspace/CacheLink/scripts/new-figure17.csv"
 
 mkdir -p $LOG_DIR
 
-cd /workspace/YCSB
+cd "$YCSB_DIR"
 # CSV HEADER
 echo "mode,workload,policy,threads,runtime_ms,throughput_ops,read_ops,avg_lat_us,min_lat_us,max_lat_us,p50_us,p95_us,p99_us" > $CSV
 
@@ -34,7 +35,7 @@ echo "mode,workload,policy,threads,runtime_ms,throughput_ops,read_ops,avg_lat_us
 
 REMOTE_PASS=""
 REMOTE_USER="root"
-REMOTE_IP="220.149.236.xx"
+REMOTE_IP="120.149.236.10"
 
 drop_cache() {
   echo "[INFO] Dropping Local OS cache..."
@@ -150,7 +151,8 @@ for WORKLOAD in "${WORKLOADS[@]}"; do
     WORKLOAD_ORIG="$WORKLOAD"
     WORKLOAD_NAME=$(basename "$WORKLOAD_ORIG")
 
-    DB_PATH="/workspace/mp1/db1m_${WORKLOAD_NAME}"
+    # DB_PATH="/workspace/mp1/db1m_${WORKLOAD_NAME}"
+    DB_PATH="${DB_MAIN_PATH}/db1m_${WORKLOAD_NAME}"
 
     echo "======================================"
     echo "WORKLOAD: $WORKLOAD_ORIG"

@@ -66,7 +66,7 @@ def load_clean_csv(file):
     return df
 
 
-file_path = "scripts/figure8-big.csv"
+file_path = "scripts/new-figure11.csv"
 df = load_clean_csv(file_path)
 
 # ============================================
@@ -181,7 +181,7 @@ fig.legend(handles, policies, loc="upper center", ncol=4, frameon=False)
 # ============================================
 plt.tight_layout(rect=[0, 0.02, 1, 0.9])
 
-output_file = "figure8_runtime_throughput_2x2.png"
+output_file = "new-figure11.png"
 plt.savefig(output_file, dpi=300, bbox_inches="tight")
 plt.show()
 

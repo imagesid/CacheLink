@@ -333,7 +333,8 @@ apt install -y \
   python3 \
   python3-pip \
   nfs-common \
-  sudo
+  sudo \
+  sshpass
 ```
 
 ---

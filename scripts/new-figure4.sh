@@ -5,7 +5,7 @@ set -e
 ## This is for best conf with multi L1
 ## Target: see which size is good 
 DB_BENCH_BIN="/workspace/CacheLink/db_bench"
-DB_PATH="/workspace/mp3/rocksdb_bench3"
+DB_PATH="/workspace/rocksdb_nfs/rocksdb_bench3"
 
 NUM=3000000
 VALUE_SIZE=4096

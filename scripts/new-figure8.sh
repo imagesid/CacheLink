@@ -1,6 +1,7 @@
 #!/bin/bash
 set -e
 
+# You need to modify path and remote information here
 # A: 50% read, 50% update
 # B: 95% read, 5% update
 # C: 100% read
@@ -19,12 +20,16 @@ RECORDCOUNT=1000000
 OPCOUNT=1000000
 THREADS=1
 
-LOG_DIR="/workspace/rocksdb/scripts/logs"
-CSV="/workspace/rocksdb/scripts/figure6-big.csv"
+YCSB_DIR=/workspace/YCSB
+LOG_DIR="/workspace/CacheLink/scripts/logs"
+CSV="/workspace/CacheLink/scripts/new-figure8.csv"
 
 mkdir -p $LOG_DIR
 
-cd /workspace/YCSB
+
+cd "$YCSB_DIR"
+YCSB_BIN="./bin/ycsb"
+DB_MAIN_PATH="/workspace/rocksdb_nfs"
 # CSV HEADER
 echo "mode,workload,policy,runtime_ms,throughput_ops,read_ops,avg_lat_us,min_lat_us,max_lat_us,p50_us,p95_us,p99_us" > $CSV
 
@@ -34,7 +39,7 @@ echo "mode,workload,policy,runtime_ms,throughput_ops,read_ops,avg_lat_us,min_lat
 
 REMOTE_PASS=""
 REMOTE_USER="root"
-REMOTE_IP="220.149.236.xx"
+REMOTE_IP="120.149.236.10"
 
 drop_cache() {
   echo "[INFO] Dropping Local OS cache..."
@@ -78,13 +83,15 @@ run_test() {
     WORKLOAD_NAME=$(basename "$WORKLOAD_ORIG")
 
     NAME="baseline"
-    LOG_FILE="$LOG_DIR/${NAME}_${WORKLOAD_NAME}-big.txt"
+    LOG_FILE="${LOG_DIR}/${NAME}_${WORKLOAD_NAME}.txt"
 
     echo "=== RUN: BASELINE ($WORKLOAD_ORIG) ==="
 
     drop_cache
 
-    ./bin/ycsb run rocksdb \
+    echo "=== RUN2: BASELINE ($DB_PATH) ==="
+
+    "$YCSB_BIN" run rocksdb \
         -threads $THREADS \
         -s \
         -P "$WORKLOAD_ORIG" \
@@ -118,7 +125,7 @@ run_test_cachelink() {
     drop_cache
     rm -rf /mnt/nvme/cache_file
 
-    ./bin/ycsb run rocksdb \
+    "$YCSB_BIN" run rocksdb \
         -threads $THREADS \
         -s \
         -P "$WORKLOAD_ORIG" \
@@ -147,7 +154,7 @@ for WORKLOAD in "${WORKLOADS[@]}"; do
     WORKLOAD_ORIG="$WORKLOAD"
     WORKLOAD_NAME=$(basename "$WORKLOAD_ORIG")
 
-    DB_PATH="/workspace/mp1/db1m_${WORKLOAD_NAME}"
+    DB_PATH="${DB_MAIN_PATH}/db1m_${WORKLOAD_NAME}"
 
     echo "======================================"
     echo "WORKLOAD: $WORKLOAD_ORIG"
@@ -155,22 +162,22 @@ for WORKLOAD in "${WORKLOADS[@]}"; do
     echo "======================================"
 
     # LOAD (only once)
-    if [ ! -d "$DB_PATH" ]; then
-        echo "=== LOAD PHASE ==="
+    # if [ ! -d "$DB_PATH" ]; then
+    #     echo "=== LOAD PHASE ==="
 
-        ./bin/ycsb load rocksdb \
-            -threads 16 \
-            -s \
-            -P "$WORKLOAD_ORIG" \
-            -p rocksdb.dir="$DB_PATH" \
-            -p recordcount=$RECORDCOUNT \
-            -p fieldlength=4096 \
-            > "$LOG_DIR/load_${WORKLOAD_NAME}.txt"
+    #     "$YCSB_BIN" load rocksdb \
+    #         -threads 16 \
+    #         -s \
+    #         -P "$WORKLOAD_ORIG" \
+    #         -p rocksdb.dir="$DB_PATH" \
+    #         -p recordcount=$RECORDCOUNT \
+    #         -p fieldlength=4096 \
+    #         > "$LOG_DIR/load_${WORKLOAD_NAME}.txt"
 
-        echo "=== LOAD DONE ==="
-    else
-        echo "=== DB exists, skipping load ==="
-    fi
+    #     echo "=== LOAD DONE ==="
+    # else
+    #     echo "=== DB exists, skipping load ==="
+    # fi
 
     # BASELINE
     run_test "$WORKLOAD_ORIG" "$DB_PATH"

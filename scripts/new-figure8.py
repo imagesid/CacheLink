@@ -50,7 +50,7 @@ def load_clean_csv(file):
     return df
 
 
-file_path = "scripts/figure6-big.csv"
+file_path = "scripts/new-figure8.csv"
 df = load_clean_csv(file_path)
 
 # ============================================
@@ -151,6 +151,6 @@ for ax in [ax1, ax2]:
     ax.spines["right"].set_visible(False)
 
 plt.tight_layout(rect=[0, 0.05, 1, 0.9])
-plt.savefig("figure6_subfig.png", dpi=300, bbox_inches="tight")
+plt.savefig("new-figure8.png", dpi=300, bbox_inches="tight")
 plt.show()
-print("figure6_subfig.png")
+print("new-figure8.png")

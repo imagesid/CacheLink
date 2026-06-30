@@ -5,7 +5,7 @@ set -e
 
 ## Target: what device is the fastest
 DB_BENCH_BIN="/workspace/CacheLink/db_bench"
-DB_PATH="/workspace/mp3/rocksdb_bench3" 
+DB_PATH="/workspace/rocksdb_nfs/rocksdb_bench3" 
 
 NUM=3000000
 VALUE_SIZE=4096
